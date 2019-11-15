@@ -1,0 +1,24 @@
+
+syntax = "proto3";
+
+package auth;
+
+service Auth {
+  rpc attemptLogin (LoginRequest) returns (LoginReply) {}
+  rpc refreshToken (RefreshRequest) returns (LoginReply) {}
+  rpc getProfile (ProfileRequest) returns (Profile) {}
+}
+
+message LoginRequest {
+  string Profilename = 1;
+  string password = 2;
+}
+
+message RefreshRequest {}
+
+message LoginReply {
+  string accessToken = 1;
+}
+
+message ProfileRequest {}
+message Profile {}
