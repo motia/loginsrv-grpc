@@ -10,7 +10,7 @@ service Auth {
 }
 
 message LoginRequest {
-  string Profilename = 1;
+  string username = 1;
   string password = 2;
 }
 
@@ -21,4 +21,6 @@ message LoginReply {
 }
 
 message ProfileRequest {}
-message Profile {}
+message Profile {
+  string Name = 1;
+}

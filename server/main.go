@@ -1,11 +1,14 @@
 package main
 
 import (
-	"context"
 	"log"
 	"net"
 
 	auth "github.com/motia/proto-auth/auth"
+
+	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
+	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+	grpc_recovery "github.com/grpc-ecosystem/go-grpc-middleware/recovery"
 
 	"google.golang.org/grpc"
 )
@@ -14,29 +17,31 @@ const (
 	port = ":50051"
 )
 
-type server struct {
-	auth.UnimplementedAuthServer
-}
-
-func (s *server) AttemptLogin(ctx context.Context, in *auth.LoginRequest) (*auth.LoginReply, error) {
-	return &auth.LoginReply{AccessToken: "First token"}, nil
-}
-
-func (s *server) RefreshToken(ctx context.Context, in *auth.RefreshRequest) (*auth.LoginReply, error) {
-	return &auth.LoginReply{AccessToken: "Refreshed token"}, nil
-}
-
-func (s *server) GetProfile(ctx context.Context, in *auth.ProfileRequest) (*auth.Profile, error) {
-	return &auth.Profile{}, nil
-}
-
 func main() {
 	lis, err := net.Listen("tcp", port)
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	s := grpc.NewServer()
-	auth.RegisterAuthServer(s, &server{})
+	s := grpc.NewServer(
+		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+			// grpc_ctxtags.StreamServerInterceptor(),
+			// grpc_opentracing.StreamServerInterceptor(),
+			// grpc_prometheus.StreamServerInterceptor,
+			// grpc_zap.StreamServerInterceptor(zapLogger),
+			grpc_auth.StreamServerInterceptor(auth.Authenticate),
+			grpc_recovery.StreamServerInterceptor(),
+		)),
+		grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+			// grpc_ctxtags.UnaryServerInterceptor(),
+			// grpc_opentracing.UnaryServerInterceptor(),
+			// grpc_prometheus.UnaryServerInterceptor,
+			// grpc_zap.UnaryServerInterceptor(zapLogger),
+			grpc_auth.UnaryServerInterceptor(auth.Authenticate),
+			grpc_recovery.UnaryServerInterceptor(),
+		)),
+	)
+	auth.RegisterAuthServer(s, auth.NewLoginSrvServer("http://localhost:8080"))
+	log.Println("Auth sever started")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)
 	}
