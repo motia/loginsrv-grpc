@@ -63,4 +63,10 @@ func main() {
 		log.Fatalf("server sucks: %v", err)
 	}
 	fmt.Println("Refresh Reply " + refreshReply.AccessToken)
+
+	profileReply, err := c.GetProfile(ctx, &auth.ProfileRequest{})
+	if err != nil {
+		log.Fatalf("server sucks: %v", err)
+	}
+	fmt.Println("Profile Reply " + profileReply.Name)
 }
