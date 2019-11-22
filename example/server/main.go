@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	auth "github.com/motia/loginsrv-grpc"
+	loginsrv_grpc "github.com/motia/loginsrv-grpc"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
@@ -22,7 +22,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("failed to listen: %v", err)
 	}
-	server := auth.NewLoginSrvServer("http://localhost:8080")
+	server := loginsrv_grpc.NewLoginSrvServer("http://localhost:8080")
 
 	s := grpc.NewServer(
 		grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
@@ -42,7 +42,7 @@ func main() {
 			grpc_recovery.UnaryServerInterceptor(),
 		)),
 	)
-	auth.RegisterAuthServer(s, server)
+	loginsrv_grpc.RegisterAuthServer(s, server)
 	log.Println("Auth sever started")
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("failed to serve: %v", err)

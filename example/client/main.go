@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	auth "github.com/motia/loginsrv-grpc"
+	loginsrv_grpc "github.com/motia/loginsrv-grpc"
 	"google.golang.org/grpc"
 )
 
@@ -26,7 +26,7 @@ func (ts *tokenStorage) getToken() *string {
 func main() {
 	ts := &tokenStorage{}
 	tokenAdderInterceptor := grpc.UnaryClientInterceptor(
-		auth.NewClientTokenInterceptor(ts.getToken))
+		loginsrv_grpc.NewClientTokenInterceptor(ts.getToken))
 	conn, err := grpc.Dial(
 		address,
 		grpc.WithInsecure(),
@@ -37,11 +37,11 @@ func main() {
 		log.Fatalf("did not connect: %v", err)
 	}
 	defer conn.Close()
-	c := auth.NewAuthClient(conn)
+	c := loginsrv_grpc.NewAuthClient(conn)
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
-	loginReply, err := c.AttemptLogin(ctx, &auth.LoginRequest{Username: "bob", Password: "secret"})
+	loginReply, err := c.AttemptLogin(ctx, &loginsrv_grpc.LoginRequest{Username: "bob", Password: "secret"})
 
 	if err != nil {
 		log.Fatalf("server error: %v", err)
@@ -49,14 +49,14 @@ func main() {
 	ts.token = &loginReply.AccessToken
 	fmt.Println("Login Reply " + loginReply.AccessToken)
 
-	refreshReply, err := c.RefreshToken(ctx, &auth.RefreshRequest{})
+	refreshReply, err := c.RefreshToken(ctx, &loginsrv_grpc.RefreshRequest{})
 	fmt.Println(refreshReply == nil, err)
 	if err != nil {
 		log.Fatalf("server error: %v", err)
 	}
 	fmt.Println("Refresh Reply: " + refreshReply.AccessToken)
 
-	profileReply, err := c.GetProfile(ctx, &auth.ProfileRequest{})
+	profileReply, err := c.GetProfile(ctx, &loginsrv_grpc.ProfileRequest{})
 	if err != nil {
 		log.Fatalf("server error: %v", err)
 	}
