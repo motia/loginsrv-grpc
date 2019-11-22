@@ -7,7 +7,7 @@ import (
 	"log"
 	"time"
 
-	auth "github.com/motia/loginsrv-grpc/auth"
+	auth "github.com/motia/loginsrv-grpc"
 	"google.golang.org/grpc"
 )
 

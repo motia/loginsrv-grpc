@@ -3,6 +3,6 @@
 set -e
 set -x
 
-protoc -I auth/ auth/auth.proto --go_out=plugins=grpc:auth
+protoc -I ./ ./loginsrv.proto --go_out=plugins=grpc:.
 
 echo "Items generrated"

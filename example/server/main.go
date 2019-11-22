@@ -4,7 +4,7 @@ import (
 	"log"
 	"net"
 
-	auth "github.com/motia/loginsrv-grpc/auth"
+	auth "github.com/motia/loginsrv-grpc"
 
 	grpc_middleware "github.com/grpc-ecosystem/go-grpc-middleware"
 	grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"

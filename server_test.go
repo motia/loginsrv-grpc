@@ -1,4 +1,4 @@
-package auth
+package loginsrv_grpc
 
 import (
 	"testing"
