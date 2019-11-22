@@ -23,10 +23,14 @@ type LoginSrvServer struct {
 	baseURL   *string
 }
 
+// AuthFuncOverride used internally to skip authentication for login route
+func (s *LoginSrvServer) AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error) {
+	return ctx, nil
+}
+
 // Authenticate validates the access token available in the context metadata
 func (s *LoginSrvServer) Authenticate(ctx context.Context) (context.Context, error) {
 	accessToken, err := grpc_auth.AuthFromMD(ctx, "bearer")
-	log.Println("Checking access token", accessToken)
 
 	if err != nil {
 		return nil, err
@@ -38,7 +42,8 @@ func (s *LoginSrvServer) Authenticate(ctx context.Context) (context.Context, err
 		if oldToken == nil {
 			return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
 		}
-		_, err = s.loginWithAPI("GET", nil, oldToken)
+		_, err = s.GetProfile(ctx, &ProfileRequest{})
+
 		return ctx, err
 	}
 
@@ -63,30 +68,27 @@ func NewLoginSrvServer(url string, options ...Option) *LoginSrvServer {
 	return srv
 }
 
-// AuthFuncOverride used internally to skip authentication for login route
-func (s *LoginSrvServer) AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error) {
-	log.Println("Checking access token", fullMethodName)
-
-	if strings.Contains(fullMethodName, "GetProfile") {
-		return s.Authenticate(ctx)
-	}
-	return ctx, nil
-}
-
 // AttemptLogin is a basic authentication
 func (s *LoginSrvServer) AttemptLogin(ctx context.Context, request *LoginRequest) (*LoginReply, error) {
 	data := "username=" + request.Username + "&password=" + request.Password
-	return s.loginWithAPI("POST", &data, nil)
+	return s.postLogin(&data, nil)
 }
 
-func (s *LoginSrvServer) loginWithAPI(method string, loginData *string, cookie *string) (*LoginReply, error) {
+func (s *LoginSrvServer) postLogin(data *string, token *string) (*LoginReply, error) {
+	body, err := s.loginWithAPI("POST", "jwt", data, token)
+	if err == nil {
+		return &LoginReply{AccessToken: *body}, err
+	}
+	return nil, err
+}
+
+func (s *LoginSrvServer) loginWithAPI(method string, contentType string, loginData *string, cookie *string) (*string, error) {
 	var reader io.Reader = nil
 	if loginData != nil {
 		reader = strings.NewReader(*loginData)
 	}
-	req, err := http.NewRequest(
-		method,
-		*s.baseURL+"/login", reader)
+	req, err := http.NewRequest(method, *s.baseURL+"/login", reader)
+	req.Header.Add("Accept", "application/"+contentType)
 	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 	if cookie != nil {
 		req.Header.Add("Cookie", "jwt_token="+*cookie)
@@ -115,7 +117,8 @@ func (s *LoginSrvServer) loginWithAPI(method string, loginData *string, cookie *
 	}
 
 	if resp.StatusCode == 200 {
-		return &LoginReply{AccessToken: string(body)}, nil
+		temp := string(body)
+		return &temp, nil
 	}
 
 	return nil, grpc.Errorf(codes.Unknown, string(body))
@@ -127,7 +130,7 @@ func (s *LoginSrvServer) RefreshToken(ctx context.Context, request *RefreshReque
 	if oldToken == nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
 	}
-	return s.loginWithAPI("POST", nil, oldToken)
+	return s.postLogin(nil, oldToken)
 }
 
 func getTokenFromContext(ctx context.Context) *string {
@@ -150,33 +153,26 @@ func getTokenFromContext(ctx context.Context) *string {
 
 // GetProfile returns the user profile
 func (s *LoginSrvServer) GetProfile(ctx context.Context, profileRequest *ProfileRequest) (*Profile, error) {
-	metadata, _ := md.FromIncomingContext(ctx)
-	cookie := &strings.SplitN(
-		metadata.Get("authorization")[0],
-		" ",
-		2,
-	)[1]
-
-	req, err := http.NewRequest(
-		"GET",
-		*s.baseURL+"/login", nil)
-	req.Header.Add("Accept", "application/json")
-
+	oldToken := getTokenFromContext(ctx)
+	if oldToken == nil {
+		return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
+	}
+	json, err := s.loginWithAPI("GET", "json", nil, oldToken)
 	if err != nil {
 		return nil, err
 	}
-	if cookie != nil {
-		req.Header.Add("Cookie", "jwt_token="+*cookie)
-	}
-	resp, err := s.apiClient.Do(req)
-	if err != nil {
-		return nil, err
-	}
-	defer resp.Body.Close()
-	body, err2 := ioutil.ReadAll(resp.Body)
-	if err2 != nil {
-		log.Println("bye", err2)
-	}
+	return &Profile{Name: *json}, nil
+}
 
-	return &Profile{Name: string(body)}, nil
+// Loginsrv returned profile type
+type userInfo struct {
+	Sub       string   `json:"sub"`
+	Picture   string   `json:"picture,omitempty"`
+	Name      string   `json:"name,omitempty"`
+	Email     string   `json:"email,omitempty"`
+	Origin    string   `json:"origin,omitempty"`
+	Expiry    int64    `json:"exp,omitempty"`
+	Refreshes int      `json:"refs,omitempty"`
+	Domain    string   `json:"domain,omitempty"`
+	Groups    []string `json:"groups,omitempty"`
 }

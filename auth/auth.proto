@@ -22,5 +22,13 @@ message LoginReply {
 
 message ProfileRequest {}
 message Profile {
-  string Name = 1;
+  string Sub = 1;
+  string Picture = 2;
+  string Name = 3;
+  string Email = 4;
+  string Origin = 5;
+  int64 Expiry = 6;
+  int32 Refreshes = 7;
+  string Domain = 8;
+  repeated string Groups = 9;
 }
