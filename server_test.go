@@ -7,31 +7,6 @@ import (
 	md "google.golang.org/grpc/metadata"
 )
 
-type contextWithAuthorizationStub struct {
-	authToken string
-}
-
-func (*contextWithAuthorizationStub) Deadline() (deadline time.Time, ok bool) {
-	return time.Time{}, true
-}
-
-func (*contextWithAuthorizationStub) Done() <-chan struct{} {
-	return make(<-chan struct{})
-}
-
-func (*contextWithAuthorizationStub) Err() error {
-	return nil
-}
-
-func (m *contextWithAuthorizationStub) Value(key interface{}) interface{} {
-	if m.authToken == "" {
-		return md.New(map[string]string{})
-	}
-	return md.New(map[string]string{
-		AuthTokenMetadataKey: "bearer " + m.authToken,
-	})
-}
-
 func TestAuthenticateWithoutTokenFails(t *testing.T) {
 	srv := NewLoginSrvServer("http://localhost:8080")
 	token := ""
@@ -58,16 +33,23 @@ func TestAuthenticateWithTokenSucceeds(t *testing.T) {
 	}
 }
 
-func obtainTokenOrFail(t *testing.T, srv *LoginSrvServer) string {
-	loginReply, err := srv.AttemptLogin(nil, &LoginRequest{
-		Username: "bob",
-		Password: "secret",
-	})
+func TestGetProfile(t *testing.T) {
+	srv := NewLoginSrvServer("http://localhost:8080")
+	token := obtainTokenOrFail(t, srv)
+	ctx := &contextWithAuthorizationStub{authToken: token}
 
+	profile, err := srv.GetProfile(ctx, &ProfileRequest{})
 	if err != nil {
-		t.Error("Token could not be obtained", err)
+		t.Error("Error while loading profile", err)
 	}
-	return loginReply.AccessToken
+
+	if profile == nil {
+		t.Error("Profile should not be nil", err)
+	}
+
+	if profile.Sub != "bob" {
+		t.Error("Expected 'bob' profile but got " + profile.Sub)
+	}
 }
 
 func TestAttemptLoginThenRefresh(t *testing.T) {
@@ -101,8 +83,45 @@ func TestAttemptLoginThenRefresh(t *testing.T) {
 	assertHasAccessToken(t, refreshReply)
 }
 
+func obtainTokenOrFail(t *testing.T, srv *LoginSrvServer) string {
+	loginReply, err := srv.AttemptLogin(nil, &LoginRequest{
+		Username: "bob",
+		Password: "secret",
+	})
+
+	if err != nil {
+		t.Error("Token could not be obtained", err)
+	}
+	return loginReply.AccessToken
+}
+
 func assertHasAccessToken(t *testing.T, r *LoginReply) {
 	if r.GetAccessToken() == "" {
 		t.Error("No access token in reply")
 	}
+}
+
+type contextWithAuthorizationStub struct {
+	authToken string
+}
+
+func (*contextWithAuthorizationStub) Deadline() (deadline time.Time, ok bool) {
+	return time.Time{}, true
+}
+
+func (*contextWithAuthorizationStub) Done() <-chan struct{} {
+	return make(<-chan struct{})
+}
+
+func (*contextWithAuthorizationStub) Err() error {
+	return nil
+}
+
+func (m *contextWithAuthorizationStub) Value(key interface{}) interface{} {
+	if m.authToken == "" {
+		return md.New(map[string]string{})
+	}
+	return md.New(map[string]string{
+		AuthTokenMetadataKey: "bearer " + m.authToken,
+	})
 }

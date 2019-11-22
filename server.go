@@ -2,9 +2,9 @@ package loginsrv_grpc
 
 import (
 	"context"
+	"encoding/json"
 	"io"
 	"io/ioutil"
-	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -106,7 +106,7 @@ func (s *LoginSrvServer) loginWithAPI(method string, contentType string, loginDa
 	defer resp.Body.Close()
 	body, err2 := ioutil.ReadAll(resp.Body)
 	if err2 != nil {
-		log.Println("bye", err2)
+		return nil, grpc.Errorf(codes.Internal, "Internal")
 	}
 
 	if resp.StatusCode == 400 {
@@ -158,11 +158,27 @@ func (s *LoginSrvServer) GetProfile(ctx context.Context, profileRequest *Profile
 	if oldToken == nil {
 		return nil, grpc.Errorf(codes.Unauthenticated, "Unauthenticated")
 	}
-	json, err := s.loginWithAPI("GET", "json", nil, oldToken)
+	jsonStr, err := s.loginWithAPI("GET", "json", nil, oldToken)
 	if err != nil {
 		return nil, err
 	}
-	return &Profile{Name: *json}, nil
+
+	user := &userInfo{}
+	err = json.Unmarshal([]byte(*jsonStr), user)
+	if err != nil {
+		return nil, grpc.Errorf(codes.Internal, "Internal")
+	}
+	return &Profile{
+		Sub:       user.Sub,
+		Picture:   user.Picture,
+		Name:      user.Name,
+		Email:     user.Email,
+		Origin:    user.Origin,
+		Expiry:    user.Expiry,
+		Refreshes: int32(user.Refreshes),
+		Domain:    user.Domain,
+		Groups:    user.Groups,
+	}, nil
 }
 
 // Loginsrv returned profile type

@@ -44,7 +44,7 @@ func main() {
 	loginReply, err := c.AttemptLogin(ctx, &auth.LoginRequest{Username: "bob", Password: "secret"})
 
 	if err != nil {
-		log.Fatalf("server sucks: %v", err)
+		log.Fatalf("server error: %v", err)
 	}
 	ts.token = &loginReply.AccessToken
 	fmt.Println("Login Reply " + loginReply.AccessToken)
@@ -52,13 +52,13 @@ func main() {
 	refreshReply, err := c.RefreshToken(ctx, &auth.RefreshRequest{})
 	fmt.Println(refreshReply == nil, err)
 	if err != nil {
-		log.Fatalf("server sucks: %v", err)
+		log.Fatalf("server error: %v", err)
 	}
-	fmt.Println("Refresh Reply " + refreshReply.AccessToken)
+	fmt.Println("Refresh Reply: " + refreshReply.AccessToken)
 
 	profileReply, err := c.GetProfile(ctx, &auth.ProfileRequest{})
 	if err != nil {
-		log.Fatalf("server sucks: %v", err)
+		log.Fatalf("server error: %v", err)
 	}
-	fmt.Println("Profile Reply " + profileReply.Name)
+	fmt.Println("Profile Reply: sub=" + profileReply.Sub)
 }
