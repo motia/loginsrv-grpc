@@ -9,37 +9,29 @@ import (
 
 	auth "github.com/motia/proto-auth/auth"
 	"google.golang.org/grpc"
-	md "google.golang.org/grpc/metadata"
 )
 
 const (
 	address = "localhost:50051"
 )
 
-func authHeaderAdder(token *string) grpc.UnaryClientInterceptor {
-	return func(
-		ctx context.Context,
-		method string,
-		req interface{},
-		reply interface{},
-		cc *grpc.ClientConn,
-		invoker grpc.UnaryInvoker,
-		opts ...grpc.CallOption) error {
+type tokenStorage struct {
+	token *string
+}
 
-		if len(*token) > 0 {
-			ctx = md.AppendToOutgoingContext(ctx, "authorization", "bearer "+*token)
-		}
-		return invoker(ctx, method, req, reply, cc, opts...)
-	}
+func (ts *tokenStorage) getToken() *string {
+	return ts.token
 }
 
 func main() {
-	token := ""
+	ts := &tokenStorage{}
+	tokenAdderInterceptor := grpc.UnaryClientInterceptor(
+		auth.NewClientTokenInterceptor(ts.getToken))
 	conn, err := grpc.Dial(
 		address,
 		grpc.WithInsecure(),
 		grpc.WithBlock(),
-		grpc.WithChainUnaryInterceptor(grpc.UnaryClientInterceptor(authHeaderAdder(&token))),
+		grpc.WithChainUnaryInterceptor(tokenAdderInterceptor),
 	)
 	if err != nil {
 		log.Fatalf("did not connect: %v", err)
@@ -54,7 +46,7 @@ func main() {
 	if err != nil {
 		log.Fatalf("server sucks: %v", err)
 	}
-	token = loginReply.AccessToken
+	ts.token = &loginReply.AccessToken
 	fmt.Println("Login Reply " + loginReply.AccessToken)
 
 	refreshReply, err := c.RefreshToken(ctx, &auth.RefreshRequest{})

@@ -28,7 +28,8 @@ func (s *LoginSrvServer) AuthFuncOverride(ctx context.Context, fullMethodName st
 	return ctx, nil
 }
 
-// Authenticate validates the access token available in the context metadata
+// Authenticate asserts a token is attached to the RPC context
+// clients can attach it with NewClientTokenInterceptor
 func (s *LoginSrvServer) Authenticate(ctx context.Context) (context.Context, error) {
 	accessToken, err := grpc_auth.AuthFromMD(ctx, "bearer")
 
@@ -135,7 +136,7 @@ func (s *LoginSrvServer) RefreshToken(ctx context.Context, request *RefreshReque
 
 func getTokenFromContext(ctx context.Context) *string {
 	metadata, _ := md.FromIncomingContext(ctx)
-	authHeader := metadata.Get("authorization")
+	authHeader := metadata.Get(AuthTokenMetadataKey)
 	if len(authHeader) == 0 {
 		return nil
 	}
