@@ -1,3 +1,5 @@
+[![Build Status](https://travis-ci.org/motia/loginsrv-grpc.svg?branch=master)](https://travis-ci.org/motia/loginsrv-grpc)
+
 # loginsrv-grpc
 A grpc wrapper lib for [loginsrv](https://github.com/tarent/loginsrv) authentication service.
 
