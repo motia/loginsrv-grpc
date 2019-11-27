@@ -6,23 +6,24 @@ Authentication is does on both of the server and client an interceptor.
 See [example](https://github.com/motia/loginsrv-grpc/blob/master/example) for more details
 ### server
 
-    import (
-      loginsrv_grpc "github.com/motia/loginsrv-grpc"
-      grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-    )
+```go
+import (
+  loginsrv_grpc "github.com/motia/loginsrv-grpc"
+  grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+)
 
-    loginSrv := loginsrv_grpc.NewLoginSrvServer("http://localhost:8080")
+loginSrv := loginsrv_grpc.NewLoginSrvServer("http://localhost:8080")
 
-    s := grpc.NewServer(
-      grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
-        grpc_auth.StreamServerInterceptor(loginSrv.Authenticate),
-      )),
-      grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
-        grpc_auth.UnaryServerInterceptor(loginSrv.Authenticate),
-      )),
-    )
-    loginsrv_grpc.RegisterAuthServer(s, loginSrv)
-
+s := grpc.NewServer(
+  grpc.StreamInterceptor(grpc_middleware.ChainStreamServer(
+    grpc_auth.StreamServerInterceptor(loginSrv.Authenticate),
+  )),
+  grpc.UnaryInterceptor(grpc_middleware.ChainUnaryServer(
+    grpc_auth.UnaryServerInterceptor(loginSrv.Authenticate),
+  )),
+)
+loginsrv_grpc.RegisterAuthServer(s, loginSrv)
+```
 
 > If you want to define a custom/no authentication for a grpc service in your server, define a `AuthFuncOverride(ctx context.Context, fullMethodName string) (context.Context, error)` for it.
 
@@ -31,32 +32,32 @@ In principle, clients should add a metadata entry to their RPC with `authorizati
 
 
 Gophers can use the helper  `loginsrv_grpc.NewClientTokenInterceptor` to create the interceptor
+```go
+# for gopher clients
+import (
+  loginsrv_grpc "github.com/motia/loginsrv-grpc"
+  grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
+)
 
-    # for gopher clients
-    import (
-      loginsrv_grpc "github.com/motia/loginsrv-grpc"
-      grpc_auth "github.com/grpc-ecosystem/go-grpc-middleware/auth"
-    )
+token := "JWT_ACCESS_TOKEN"
+tokenAdderInterceptor := grpc.UnaryClientInterceptor(
+  loginsrv_grpc.NewClientTokenInterceptor(func () {
+    return &token
+  }))
 
-    token := "JWT_ACCESS_TOKEN"
-    tokenAdderInterceptor := grpc.UnaryClientInterceptor(
-      loginsrv_grpc.NewClientTokenInterceptor(func () {
-        return &token
-      }))
-
-    conn, err := grpc.Dial(
-      address,
-      grpc.WithChainUnaryInterceptor(tokenAdderInterceptor),
-    )
-
+conn, err := grpc.Dial(
+  address,
+  grpc.WithChainUnaryInterceptor(tokenAdderInterceptor),
+)
+```
 
 ## Development
 - Tests are executed against a docker container of `loginsrv`
-
-      # run container
-      docker run -p 8080:8080 tarent/loginsrv -cookie-secure=false \
-        -jwt-secret my_secret -simple bob=secret -jwt-refreshes 20
-      # run tests
-      go test
-
+```bash
+# run container
+docker run -p 8080:8080 tarent/loginsrv -cookie-secure=false \
+    -jwt-secret my_secret -simple bob=secret -jwt-refreshes 20
+# run tests
+go test
+```
 - Use `gen.sh` to sync the generated protocol buffers.
